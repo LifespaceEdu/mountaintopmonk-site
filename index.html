@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MountainTopMonk // Systems Architecture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --accent: #d4a574;
+            --text-primary: #f5f5f5;
+            --text-secondary: #a1a1aa;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            cursor: none;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .cursor-dot,
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .cursor-dot {
+            width: 5px;
+            height: 5px;
+            background-color: var(--accent);
+        }
+
+        .cursor-outline {
+            width: 30px;
+            height: 30px;
+            border: 1px solid rgba(212, 165, 116, 0.5);
+            transition: width 0.2s, height 0.2s, background-color 0.2s;
+        }
+
+        .cursor-outline.hover {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(212, 165, 116, 0.1);
+            border-color: var(--accent);
+        }
+
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9998;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .reveal-text {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+        }
+
+        .magnetic-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 2.5rem;
+            background: transparent;
+            border: 1px solid rgba(212, 165, 116, 0.3);
+            color: var(--accent);
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+
+        .magnetic-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent);
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: -1;
+        }
+
+        .magnetic-btn:hover {
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        .magnetic-btn:hover::before {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: var(--accent);
+            z-index: 9999;
+            transform-origin: left;
+            transform: scaleX(0);
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--accent);
+            margin-bottom: 2rem;
+            display: block;
+        }
+
+        .work-card {
+            position: relative;
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .work-card:hover {
+            border-color: rgba(212, 165, 116, 0.3);
+            transform: translateY(-5px);
+        }
+
+        .work-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(600px circle at var(--mouse-x) var(--mouse-y),
+                rgba(212, 165, 116, 0.15),
+                transparent 40%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .work-card:hover::after {
+            opacity: 1;
+        }
+
+        .philosophy-tag {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            transition: all 0.3s;
+        }
+
+        .philosophy-tag:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .line-draw {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            transform-origin: left;
+            transform: scaleX(0);
+        }
+
+        @media (pointer: coarse) {
+            .cursor-dot, .cursor-outline {
+                display: none;
+            }
+            body {
+                cursor: auto;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-orange-900 selection:text-white">
+
+    <div class="grain"></div>
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <div id="canvas-container"></div>
+
+    <nav class="fixed top-0 w-full z-50 px-6 py-6 mix-blend-difference">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="text-xl md:text-2xl font-serif text-white tracking-tight" id="logo">
+                MountainTopMonk
+            </div>
+            <div class="hidden md:flex gap-8 text-sm uppercase tracking-widest text-gray-300">
+                <a href="#philosophy" class="hover:text-[#d4a574] transition-colors magnetic-link">Discipline</a>
+                <a href="#work" class="hover:text-[#d4a574] transition-colors magnetic-link">Work</a>
+                <a href="#contact" class="hover:text-[#d4a574] transition-colors magnetic-link">Contact</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="relative min-h-screen flex items-center justify-center px-6">
+        <div class="max-w-6xl mx-auto text-center">
+            <div class="mb-6 overflow-hidden">
+                <p class="text-sm uppercase tracking-[0.3em] text-[#d4a574]" id="hero-label">
+                    Systems Architecture &amp; Design
+                </p>
+            </div>
+
+            <h1 class="text-5xl md:text-7xl lg:text-8xl font-serif leading-tight mb-8" id="hero-title">
+                <span class="block overflow-hidden">
+                    <span class="inline-block reveal-line">Ship Fast.</span>
+                </span>
+                <span class="block overflow-hidden">
+                    <span class="inline-block reveal-line text-[#d4a574] italic">Build Forever.</span>
+                </span>
+            </h1>
+
+            <div class="max-w-2xl mx-auto mb-12 opacity-0" id="hero-subtitle">
+                <p class="text-lg md:text-xl text-gray-400 leading-relaxed font-light">
+                    Web applications and media production built with obsessive attention
+                    to architecture. Speed without fragility. Modern execution with
+                    timeless foundations.
+                </p>
+            </div>
+
+            <div class="opacity-0" id="hero-cta">
+                <a href="#work" class="magnetic-btn magnetic-link">
+                    <span>View Capabilities</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 8H15M15 8L8 1M15 8L8 15" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 opacity-0" id="scroll-hint">
+            <div class="w-[1px] h-16 bg-gradient-to-b from-[#d4a574] to-transparent"></div>
+        </div>
+    </section>
+
+    <section id="philosophy" class="py-32 px-6 relative">
+        <div class="max-w-5xl mx-auto">
+            <div class="line-draw mb-16"></div>
+
+            <div class="grid md:grid-cols-2 gap-16 items-start">
+                <div>
+                    <span class="section-label reveal-text">The Standard</span>
+                    <h2 class="text-4xl md:text-5xl font-serif leading-tight mb-6 reveal-text">
+                        Architecture over <span class="italic text-[#d4a574]">expedience.</span>
+                    </h2>
+                </div>
+
+                <div class="space-y-6 text-gray-400 leading-relaxed">
+                    <p class="reveal-text">
+                        Most applications fail under their own weight six months after launch.
+                        We build systems designed to evolve&mdash;proper data structures, API contracts,
+                        and component hierarchies that don't crumble when requirements change.
+                    </p>
+                    <p class="reveal-text">
+                        This is disciplined execution: diagramming before coding, measuring before
+                        optimizing, and choosing the right abstraction rather than the fastest
+                        shortcut. The result is software that performs today and adapts tomorrow.
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-16 flex flex-wrap justify-center md:justify-start">
+                <span class="philosophy-tag reveal-text">Next.js</span>
+                <span class="philosophy-tag reveal-text">TypeScript</span>
+                <span class="philosophy-tag reveal-text">Supabase</span>
+                <span class="philosophy-tag reveal-text">Tailwind CSS</span>
+                <span class="philosophy-tag reveal-text">Leaflet &amp; GIS</span>
+                <span class="philosophy-tag reveal-text">Video Production</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="work" class="py-32 px-6 bg-[#0f0f10]">
+        <div class="max-w-6xl mx-auto">
+            <span class="section-label reveal-text">Selected Work</span>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-16">
+                <div class="work-card p-8 md:p-12 min-h-[400px] flex flex-col justify-between group">
+                    <div>
+                        <div class="text-xs uppercase tracking-widest text-gray-500 mb-2">Education Tech</div>
+                        <h3 class="text-2xl font-serif mb-4 group-hover:text-[#d4a574] transition-colors">Dynamic Assessment Platform</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">
+                            Digital data collection and report compiler for the UDAP Dynamic
+                            Assessment Framework. Tap-driven examiner interface for recording
+                            mediation levels, auto-scoring, and generating IEP-ready reports
+                            with accommodation language.
+                        </p>
+                    </div>
+                    <div class="flex gap-2 mt-8 flex-wrap">
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Next.js</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">TypeScript</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Supabase</span>
+                    </div>
+                </div>
+
+                <div class="work-card p-8 md:p-12 min-h-[400px] flex flex-col justify-between group md:mt-24">
+                    <div>
+                        <div class="text-xs uppercase tracking-widest text-gray-500 mb-2">Education</div>
+                        <h3 class="text-2xl font-serif mb-4 group-hover:text-[#d4a574] transition-colors">Learning Maps</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">
+                            Interactive spatial curriculum maps for homeschool families and
+                            alternative education programs. Canvas-based map editor with
+                            customizable locations, learner tracking, and role-based views
+                            for parents and students.
+                        </p>
+                    </div>
+                    <div class="flex gap-2 mt-8 flex-wrap">
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Next.js</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">TypeScript</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Supabase</span>
+                    </div>
+                </div>
+
+                <div class="work-card p-8 md:p-12 min-h-[400px] flex flex-col justify-between group">
+                    <div>
+                        <div class="text-xs uppercase tracking-widest text-gray-500 mb-2">Compliance</div>
+                        <h3 class="text-2xl font-serif mb-4 group-hover:text-[#d4a574] transition-colors">AlignIEP</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">
+                            IEP compliance assistant that parses uploaded documents, checks
+                            for regulatory alignment, and flags gaps. Built for special education
+                            teams managing complex caseloads across districts.
+                        </p>
+                    </div>
+                    <div class="flex gap-2 mt-8 flex-wrap">
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Next.js</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">TypeScript</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Supabase</span>
+                    </div>
+                </div>
+
+                <div class="work-card p-8 md:p-12 min-h-[400px] flex flex-col justify-between group md:mt-24">
+                    <div>
+                        <div class="text-xs uppercase tracking-widest text-gray-500 mb-2">Real Estate Tech</div>
+                        <h3 class="text-2xl font-serif mb-4 group-hover:text-[#d4a574] transition-colors">Property Dashboard</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">
+                            Spatial property visualization tool for buyer's agents. MLS data
+                            mapped with region-specific GIS overlays&mdash;lava zones, flood zones,
+                            tsunami risk. Curated map dashboards with shareable buyer portals
+                            and printable reports.
+                        </p>
+                    </div>
+                    <div class="flex gap-2 mt-8 flex-wrap">
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Next.js</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Leaflet</span>
+                        <span class="text-xs px-3 py-1 bg-white/5 rounded-full">Supabase</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-32 px-6">
+        <div class="max-w-4xl mx-auto text-center">
+            <span class="section-label reveal-text">Method</span>
+
+            <div class="space-y-24 mt-16">
+                <div class="reveal-text group">
+                    <div class="text-6xl font-serif text-[#d4a574]/20 mb-4 group-hover:text-[#d4a574]/40 transition-colors">01</div>
+                    <h3 class="text-2xl font-serif mb-4">Foundation First</h3>
+                    <p class="text-gray-400 max-w-lg mx-auto">
+                        Database schemas, API contracts, and system boundaries are finalized
+                        before the first component renders. No rebuilds, no regret.
+                    </p>
+                </div>
+
+                <div class="reveal-text group">
+                    <div class="text-6xl font-serif text-[#d4a574]/20 mb-4 group-hover:text-[#d4a574]/40 transition-colors">02</div>
+                    <h3 class="text-2xl font-serif mb-4">Calibrated Velocity</h3>
+                    <p class="text-gray-400 max-w-lg mx-auto">
+                        Modern tooling accelerates delivery, but never dictates design.
+                        We move fast because the architecture is sound, not because corners were cut.
+                    </p>
+                </div>
+
+                <div class="reveal-text group">
+                    <div class="text-6xl font-serif text-[#d4a574]/20 mb-4 group-hover:text-[#d4a574]/40 transition-colors">03</div>
+                    <h3 class="text-2xl font-serif mb-4">Ship &amp; Sustain</h3>
+                    <p class="text-gray-400 max-w-lg mx-auto">
+                        Deployment is the midpoint, not the finish. We monitor production,
+                        iterate on real data, and maintain what we build.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="py-32 px-6 bg-[#0f0f10] relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#d4a574]/5 to-transparent"></div>
+
+        <div class="max-w-4xl mx-auto text-center relative z-10">
+            <span class="section-label reveal-text">Begin</span>
+
+            <h2 class="text-5xl md:text-7xl font-serif mb-8 reveal-text">
+                Let's build something<br>
+                <span class="italic text-[#d4a574]">unbreakable.</span>
+            </h2>
+
+            <p class="text-gray-400 mb-12 max-w-xl mx-auto reveal-text">
+                Currently accepting select projects.
+                Preference for mission-driven work in education, sustainability, and creative tools.
+            </p>
+
+            <div class="space-y-4 reveal-text">
+                <a href="mailto:marcus.sigh@protonmail.com" class="magnetic-btn magnetic-link text-lg">
+                    <span>marcus.sigh@protonmail.com</span>
+                </a>
+
+                <div class="pt-12 flex justify-center gap-8 text-sm text-gray-500">
+                    <a href="https://github.com/LifespaceEdu" class="hover:text-[#d4a574] transition-colors magnetic-link">GitHub</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-6 left-6 text-xs text-gray-600 uppercase tracking-widest">
+            &copy; 2026 MountainTopMonk Design Services
+        </div>
+    </section>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        const magneticLinks = document.querySelectorAll('.magnetic-link');
+
+        window.addEventListener('mousemove', (e) => {
+            const posX = e.clientX;
+            const posY = e.clientY;
+
+            cursorDot.style.left = `${posX}px`;
+            cursorDot.style.top = `${posY}px`;
+
+            cursorOutline.animate({
+                left: `${posX}px`,
+                top: `${posY}px`
+            }, { duration: 500, fill: "forwards" });
+        });
+
+        magneticLinks.forEach(link => {
+            link.addEventListener('mouseenter', () => {
+                cursorOutline.classList.add('hover');
+            });
+            link.addEventListener('mouseleave', () => {
+                cursorOutline.classList.remove('hover');
+            });
+        });
+
+        gsap.to('.progress-bar', {
+            scaleX: 1,
+            ease: 'none',
+            scrollTrigger: {
+                trigger: document.body,
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 0.3
+            }
+        });
+
+        const heroTimeline = gsap.timeline();
+
+        heroTimeline
+            .from('#hero-label', {
+                y: 20,
+                opacity: 0,
+                duration: 0.8,
+                ease: 'power3.out',
+                delay: 0.5
+            })
+            .from('.reveal-line', {
+                y: 100,
+                opacity: 0,
+                duration: 1.2,
+                stagger: 0.2,
+                ease: 'power4.out'
+            }, '-=0.4')
+            .to('#hero-subtitle', {
+                opacity: 1,
+                y: 0,
+                duration: 1,
+                ease: 'power3.out'
+            }, '-=0.6')
+            .to('#hero-cta', {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: 'power3.out'
+            }, '-=0.6')
+            .to('#scroll-hint', {
+                opacity: 1,
+                duration: 1
+            }, '-=0.4');
+
+        gsap.utils.toArray('.reveal-text').forEach(element => {
+            gsap.fromTo(element,
+                {
+                    y: 50,
+                    opacity: 0
+                },
+                {
+                    y: 0,
+                    opacity: 1,
+                    duration: 1,
+                    ease: 'power3.out',
+                    scrollTrigger: {
+                        trigger: element,
+                        start: 'top 85%',
+                        toggleActions: 'play none none reverse'
+                    }
+                }
+            );
+        });
+
+        gsap.utils.toArray('.line-draw').forEach(line => {
+            gsap.to(line, {
+                scaleX: 1,
+                duration: 1.5,
+                ease: 'power3.inOut',
+                scrollTrigger: {
+                    trigger: line,
+                    start: 'top 80%'
+                }
+            });
+        });
+
+        document.querySelectorAll('.work-card').forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+        });
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 25;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 10;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.02,
+            color: 0xd4a574,
+            transparent: true,
+            opacity: 0.6
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        camera.position.z = 3;
+
+        let mouseX = 0;
+        let mouseY = 0;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            particlesMesh.rotation.y = elapsedTime * 0.05;
+            particlesMesh.rotation.x = mouseY * 0.1;
+            particlesMesh.rotation.y += mouseX * 0.01;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        const magneticBtns = document.querySelectorAll('.magnetic-btn');
+
+        magneticBtns.forEach(btn => {
+            btn.addEventListener('mousemove', (e) => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+
+                gsap.to(btn, {
+                    x: x * 0.3,
+                    y: y * 0.3,
+                    duration: 0.3,
+                    ease: 'power2.out'
+                });
+            });
+
+            btn.addEventListener('mouseleave', () => {
+                gsap.to(btn, {
+                    x: 0,
+                    y: 0,
+                    duration: 0.3,
+                    ease: 'power2.out'
+                });
+            });
+        });
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
