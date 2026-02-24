@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MountainTopMonk // Visual Systems</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --accent: #d4a574;
+            --text-primary: #f5f5f5;
+            --text-secondary: #a1a1aa;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            cursor: none;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .letterbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            border-top: 12vh solid var(--bg-primary);
+            border-bottom: 12vh solid var(--bg-primary);
+            box-sizing: border-box;
+            transition: border-width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .letterbox-overlay.expanded {
+            border-top: 0vh solid var(--bg-primary);
+            border-bottom: 0vh solid var(--bg-primary);
+        }
+
+        .film-grain {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.08;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            animation: grain 0.5s steps(10) infinite;
+        }
+
+        @keyframes grain {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-5%, -5%); }
+            20% { transform: translate(-10%, 5%); }
+            30% { transform: translate(5%, -10%); }
+            40% { transform: translate(-5%, 15%); }
+            50% { transform: translate(-10%, 5%); }
+            60% { transform: translate(15%, 0); }
+            70% { transform: translate(0, 10%); }
+            80% { transform: translate(-15%, 0); }
+            90% { transform: translate(10%, 5%); }
+        }
+
+        .light-leak {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 998;
+            background: radial-gradient(circle at 20% 30%, rgba(212, 165, 116, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(180, 120, 80, 0.1) 0%, transparent 40%);
+            mix-blend-mode: screen;
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+
+        .light-leak.active {
+            opacity: 1;
+            animation: leakShift 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes leakShift {
+            0% { transform: translate(-5%, -5%) scale(1.1); }
+            100% { transform: translate(5%, 5%) scale(1.2); }
+        }
+
+        .cursor-dot,
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .cursor-dot {
+            width: 4px;
+            height: 4px;
+            background-color: var(--accent);
+        }
+
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(212, 165, 116, 0.6);
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
+        }
+
+        .cursor-outline.hover-video {
+            width: 80px;
+            height: 80px;
+            background-color: rgba(212, 165, 116, 0.1);
+            border-color: var(--accent);
+            backdrop-filter: blur(2px);
+        }
+
+        .cursor-outline.scrubbing {
+            width: 120px;
+            height: 60px;
+            border-radius: 4px;
+            background: rgba(10, 10, 11, 0.9);
+        }
+
+        .cursor-outline.scrubbing::after {
+            content: 'SCROLL';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: var(--accent);
+        }
+
+        .play-magnetic {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgba(212, 165, 116, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s;
+            cursor: none;
+        }
+
+        .play-magnetic:hover {
+            border-color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .play-magnetic svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--accent);
+            margin-left: 4px;
+        }
+
+        .timeline-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--bg-secondary);
+        }
+
+        .timeline-track {
+            display: flex;
+            gap: 4rem;
+            padding: 0 20vw;
+            height: 100%;
+            align-items: center;
+            will-change: transform;
+        }
+
+        .timeline-frame {
+            flex-shrink: 0;
+            width: 60vw;
+            height: 60vh;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .timeline-frame.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 40px rgba(212, 165, 116, 0.1);
+        }
+
+        .timeline-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(100%) brightness(0.6);
+            transition: all 0.8s ease;
+        }
+
+        .timeline-frame.active img {
+            filter: grayscale(0%) brightness(0.8);
+            transform: scale(1.05);
+        }
+
+        .timeline-frame-info {
+            position: absolute;
+            bottom: -80px;
+            left: 0;
+            opacity: 0;
+            transition: all 0.4s ease;
+        }
+
+        .timeline-frame.active .timeline-frame-info {
+            bottom: 40px;
+            opacity: 1;
+        }
+
+        .timecode {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: var(--accent);
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: var(--accent);
+            z-index: 1001;
+            transform-origin: left;
+            transform: scaleX(0);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .crawl-text {
+            transform-origin: 50% 100%;
+            transform: perspective(300px) rotateX(25deg);
+        }
+
+        .reveal-line {
+            display: block;
+            transform: translateY(100%);
+            opacity: 0;
+        }
+
+        .slate-label {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent);
+            border: 1px solid rgba(212, 165, 116, 0.3);
+            padding: 0.5rem 1rem;
+            display: inline-block;
+            margin-bottom: 2rem;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 997;
+            opacity: 0.3;
+        }
+
+        .video-card {
+            position: relative;
+            background: var(--bg-secondary);
+            overflow: hidden;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .video-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(212, 165, 116, 0.1) 50%, transparent 70%);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+
+        .video-card:hover::before {
+            transform: translateX(100%);
+        }
+
+        .video-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (pointer: coarse) {
+            .cursor-dot, .cursor-outline {
+                display: none;
+            }
+            body {
+                cursor: auto;
+            }
+            .letterbox-overlay {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-orange-900 selection:text-white">
+
+    <div class="letterbox-overlay" id="letterbox"></div>
+    <div class="film-grain"></div>
+    <div class="scanlines"></div>
+    <div class="light-leak" id="lightLeak"></div>
+
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <nav class="fixed top-0 w-full z-[1002] px-6 py-6 mix-blend-difference">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <img src="logo.png" alt="MountainTopMonk" class="h-[27px] md:h-[34px] w-auto invert">
+                <span class="text-xl md:text-2xl font-serif text-white tracking-tight">MountainTopMonk</span>
+            </a>
+            <div class="hidden md:flex gap-8 text-sm uppercase tracking-widest text-gray-300">
+                <span class="text-[#d4a574]">Visual Systems</span>
+                <span class="text-gray-600">/</span>
+                <a href="index.html" class="hover:text-[#d4a574] transition-colors">Architecture</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 bg-[#0a0a0b]">
+            <div class="absolute inset-0 opacity-30" style="background: radial-gradient(circle at 50% 50%, #1a1510 0%, #0a0a0b 70%);"></div>
+            <div class="absolute inset-0 opacity-20" id="heroMesh" style="filter: blur(80px);"></div>
+        </div>
+
+        <div class="relative z-10 max-w-6xl mx-auto text-center px-6">
+            <div class="mb-8">
+                <span class="slate-label" id="sceneLabel">Scene 01 // Visual Systems</span>
+            </div>
+
+            <h1 class="text-6xl md:text-8xl lg:text-9xl font-serif leading-[0.9] mb-8" id="heroTitle">
+                <span class="block overflow-hidden">
+                    <span class="inline-block reveal-line">Stories are</span>
+                </span>
+                <span class="block overflow-hidden">
+                    <span class="inline-block reveal-line italic text-[#d4a574]">Systems</span>
+                </span>
+                <span class="block overflow-hidden">
+                    <span class="inline-block reveal-line">Too.</span>
+                </span>
+            </h1>
+
+            <div class="max-w-2xl mx-auto mb-12 opacity-0" id="heroSub">
+                <p class="text-lg md:text-xl text-gray-400 leading-relaxed font-light">
+                    Most video production treats symptoms: bad lighting, shaky footage, unclear messaging.
+                    I treat the underlying architecture&mdash;narrative structure, emotional rhythm,
+                    information density. I don't just capture footage. I engineer clarity.
+                </p>
+            </div>
+
+            <div class="opacity-0 flex justify-center" id="heroCue">
+                <div class="play-magnetic" id="heroPlay">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-24 right-6 text-xs font-mono text-[#d4a574]/60 tracking-widest hidden md:block">
+            REC 00:00:01:12<br>
+            FPS 24.00<br>
+            ISO 800
+        </div>
+    </section>
+
+    <section class="py-32 px-6 relative bg-[#0a0a0b]">
+        <div class="max-w-5xl mx-auto">
+            <div class="grid md:grid-cols-12 gap-12">
+                <div class="md:col-span-4">
+                    <span class="slate-label reveal-text">The Problem</span>
+                    <div class="mt-8 space-y-4 text-xs font-mono text-gray-500 uppercase tracking-widest">
+                        <div class="border-l-2 border-[#d4a574]/30 pl-4">Poor Information Architecture</div>
+                        <div class="border-l-2 border-gray-800 pl-4">Emotional Disconnect</div>
+                        <div class="border-l-2 border-gray-800 pl-4">Narrative Drift</div>
+                    </div>
+                </div>
+
+                <div class="md:col-span-8 space-y-8">
+                    <h2 class="text-4xl md:text-6xl font-serif leading-tight reveal-text">
+                        Your message is getting lost <br>
+                        <span class="italic text-[#d4a574]">in the edit.</span>
+                    </h2>
+
+                    <div class="space-y-6 text-gray-400 leading-relaxed text-lg">
+                        <p class="reveal-text">
+                            Organizations come to me with hours of footage and no story. Or a story that
+                            doesn't land. Or a landing that doesn't convert. The camera work is fine.
+                            The lighting is professional. But the <em>system</em> is broken&mdash;the narrative
+                            logic that carries a viewer from confusion to conviction.
+                        </p>
+                        <p class="reveal-text">
+                            I approach video as information architecture. Every frame is a decision.
+                            Every cut is a calculation. The goal isn't beauty (though that happens).
+                            The goal is <strong>cognitive clarity</strong>&mdash;moving your audience from
+                            Point A to Point B with no friction.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="timeline-container" id="timelineSection">
+        <div class="absolute top-1/2 left-8 transform -translate-y-1/2 z-30 flex flex-col items-center gap-3 text-[#d4a574] pointer-events-none hidden md:flex" id="scrollCue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M5 12l4-4m-4 4l4 4"/>
+            </svg>
+            <span class="font-mono text-xs tracking-widest uppercase" style="writing-mode: vertical-rl; letter-spacing: 0.2em;">Scroll</span>
+            <div class="w-[1px] h-12 bg-gradient-to-b from-[#d4a574] to-transparent animate-pulse"></div>
+        </div>
+
+        <div class="absolute top-8 left-6 z-10">
+            <span class="slate-label">The Reel</span>
+        </div>
+
+        <div class="timeline-track" id="timelineTrack">
+            <div class="timeline-frame active" data-index="0">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
+                <img src="https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=1200&h=800&fit=crop" alt="Education Documentary">
+                <div class="timeline-frame-info z-20">
+                    <div class="timecode">00:01:24:15</div>
+                    <h3 class="text-3xl font-serif mb-2">The Assessment</h3>
+                    <p class="text-gray-400 max-w-md">Education technology documentary. Finding the human story inside institutional complexity.</p>
+                </div>
+            </div>
+
+            <div class="timeline-frame" data-index="1">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
+                <img src="https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=1200&h=800&fit=crop" alt="Nonprofit Impact">
+                <div class="timeline-frame-info z-20">
+                    <div class="timecode">00:03:45:22</div>
+                    <h3 class="text-3xl font-serif mb-2">Lifespace</h3>
+                    <p class="text-gray-400 max-w-md">Non-profit impact storytelling. Visualizing invisible learning ecosystems.</p>
+                </div>
+            </div>
+
+            <div class="timeline-frame" data-index="2">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
+                <img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200&h=800&fit=crop" alt="Healthcare Compliance">
+                <div class="timeline-frame-info z-20">
+                    <div class="timecode">00:06:12:08</div>
+                    <h3 class="text-3xl font-serif mb-2">AlignIEP</h3>
+                    <p class="text-gray-400 max-w-md">Healthcare compliance narrative. Making the bureaucratic human again.</p>
+                </div>
+            </div>
+
+            <div class="timeline-frame" data-index="3">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
+                <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=800&fit=crop" alt="Artisan Commerce">
+                <div class="timeline-frame-info z-20">
+                    <div class="timecode">00:09:30:18</div>
+                    <h3 class="text-3xl font-serif mb-2">Artisan Market</h3>
+                    <p class="text-gray-400 max-w-md">E-commerce brand documentary. The maker's hand versus the machine.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-12 left-1/2 transform -translate-x-1/2 w-64 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div class="h-full bg-[#d4a574] w-0" id="scrubberProgress"></div>
+        </div>
+    </section>
+
+    <section class="py-32 px-6 relative">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-24">
+                <span class="slate-label reveal-text">The Treatment</span>
+                <h2 class="text-5xl md:text-7xl font-serif mt-8 reveal-text">
+                    Pre-production is <br>
+                    <span class="italic text-[#d4a574]">Architecture.</span>
+                </h2>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="video-card p-8 border border-white/5 group">
+                    <div class="text-6xl font-serif text-[#d4a574]/20 mb-6 group-hover:text-[#d4a574]/40 transition-colors">01</div>
+                    <h3 class="text-2xl font-serif mb-4">Excavation</h3>
+                    <p class="text-gray-400 leading-relaxed">
+                        We don't shoot until we know the story architecture. Interviews,
+                        site surveys, and narrative mapping. Finding the emotional beats
+                        before the camera rolls.
+                    </p>
+                    <div class="mt-6 pt-6 border-t border-white/5 font-mono text-xs text-[#d4a574]">
+                        DELIVERABLE: Treatment &amp; Shot List
+                    </div>
+                </div>
+
+                <div class="video-card p-8 border border-white/5 group">
+                    <div class="text-6xl font-serif text-[#d4a574]/20 mb-6 group-hover:text-[#d4a574]/40 transition-colors">02</div>
+                    <h3 class="text-2xl font-serif mb-4">Capture</h3>
+                    <p class="text-gray-400 leading-relaxed">
+                        Cinematography as systems thinking. Every frame composition serves
+                        the information hierarchy. Lighting that guides attention. Movement
+                        that creates meaning.
+                    </p>
+                    <div class="mt-6 pt-6 border-t border-white/5 font-mono text-xs text-[#d4a574]">
+                        DELIVERABLE: Raw Cinema Footage
+                    </div>
+                </div>
+
+                <div class="video-card p-8 border border-white/5 group">
+                    <div class="text-6xl font-serif text-[#d4a574]/20 mb-6 group-hover:text-[#d4a574]/40 transition-colors">03</div>
+                    <h3 class="text-2xl font-serif mb-4">Assembly</h3>
+                    <p class="text-gray-400 leading-relaxed">
+                        The edit is where structure becomes feeling. Pacing algorithms,
+                        audio layering, color grading as emotional syntax. A/B testing
+                        narrative beats for conversion.
+                    </p>
+                    <div class="mt-6 pt-6 border-t border-white/5 font-mono text-xs text-[#d4a574]">
+                        DELIVERABLE: Master &amp; Deliverables
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-24 px-6 bg-[#0f0f10] border-y border-white/5">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
+                <div>
+                    <span class="slate-label">Technical Specifications</span>
+                    <h3 class="text-3xl font-serif mt-4">Cinema Grade. Web Optimized.</h3>
+                </div>
+                <div class="text-right mt-6 md:mt-0">
+                    <div class="font-mono text-xs text-gray-500 uppercase tracking-widest">Current Kit</div>
+                    <div class="text-[#d4a574] font-mono text-sm">SONY FX6 // Sigma Cine</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 font-mono text-sm">
+                <div class="border-l border-[#d4a574]/30 pl-4">
+                    <div class="text-gray-500 mb-2">CAPTURE</div>
+                    <div class="text-gray-300">4K 60fps</div>
+                    <div class="text-gray-300">10-bit 4:2:2</div>
+                    <div class="text-gray-300">Log Gamma</div>
+                </div>
+                <div class="border-l border-[#d4a574]/30 pl-4">
+                    <div class="text-gray-500 mb-2">COLOR</div>
+                    <div class="text-gray-300">DaVinci Resolve</div>
+                    <div class="text-gray-300">HDR Pipeline</div>
+                    <div class="text-gray-300">Film Emulation</div>
+                </div>
+                <div class="border-l border-[#d4a574]/30 pl-4">
+                    <div class="text-gray-500 mb-2">AUDIO</div>
+                    <div class="text-gray-300">Dual System</div>
+                    <div class="text-gray-300">Post Sync</div>
+                    <div class="text-gray-300">Mastering 5.1</div>
+                </div>
+                <div class="border-l border-[#d4a574]/30 pl-4">
+                    <div class="text-gray-500 mb-2">DELIVERY</div>
+                    <div class="text-gray-300">H.265 Master</div>
+                    <div class="text-gray-300">Web Optimized</div>
+                    <div class="text-gray-300">CDN Ready</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-32 px-6 relative overflow-hidden min-h-screen flex items-center justify-center">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#d4a574]/5 to-transparent"></div>
+
+        <div class="max-w-4xl mx-auto text-center relative z-10">
+            <span class="slate-label reveal-text">End Scene</span>
+
+            <h2 class="text-6xl md:text-8xl font-serif mb-8 reveal-text leading-tight">
+                Let's shoot <br>
+                <span class="italic text-[#d4a574]">the director's cut.</span>
+            </h2>
+
+            <p class="text-gray-400 mb-12 max-w-xl mx-auto text-lg reveal-text">
+                Currently booking documentary and brand narrative projects.
+                Preference for mission-driven organizations and complex stories that resist
+                easy telling.
+            </p>
+
+            <div class="space-y-6 reveal-text">
+                <a href="mailto:marcus.sigh@protonmail.com" class="inline-block px-12 py-4 border border-[#d4a574] text-[#d4a574] hover:bg-[#d4a574] hover:text-black transition-all duration-300 font-mono text-sm tracking-widest uppercase">
+                    Get In Touch
+                </a>
+            </div>
+        </div>
+
+        <div class="absolute bottom-6 left-6 text-xs text-gray-700 font-mono uppercase tracking-widest">
+            &copy; 2026 MountainTopMonk // Visual Systems
+        </div>
+    </section>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+
+        window.addEventListener('mousemove', (e) => {
+            const posX = e.clientX;
+            const posY = e.clientY;
+
+            cursorDot.style.left = `${posX}px`;
+            cursorDot.style.top = `${posY}px`;
+
+            cursorOutline.style.left = `${posX}px`;
+            cursorOutline.style.top = `${posY}px`;
+        });
+
+        const heroPlay = document.getElementById('heroPlay');
+        heroPlay.addEventListener('mouseenter', () => {
+            cursorOutline.classList.add('hover-video');
+        });
+        heroPlay.addEventListener('mouseleave', () => {
+            cursorOutline.classList.remove('hover-video');
+        });
+        heroPlay.addEventListener('mousemove', (e) => {
+            const rect = heroPlay.getBoundingClientRect();
+            const x = e.clientX - rect.left - rect.width / 2;
+            const y = e.clientY - rect.top - rect.height / 2;
+
+            gsap.to(heroPlay, {
+                x: x * 0.4,
+                y: y * 0.4,
+                duration: 0.3
+            });
+        });
+        heroPlay.addEventListener('mouseleave', () => {
+            gsap.to(heroPlay, { x: 0, y: 0, duration: 0.5 });
+        });
+
+        ScrollTrigger.create({
+            trigger: "body",
+            start: "top top",
+            end: "100px top",
+            onUpdate: (self) => {
+                if (self.progress > 0.5) {
+                    document.getElementById('letterbox').classList.add('expanded');
+                } else {
+                    document.getElementById('letterbox').classList.remove('expanded');
+                }
+            }
+        });
+
+        gsap.to('.progress-bar', {
+            scaleX: 1,
+            ease: 'none',
+            scrollTrigger: {
+                trigger: document.body,
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 0.3
+            }
+        });
+
+        const heroTl = gsap.timeline({ delay: 0.5 });
+
+        heroTl
+            .from('.reveal-line', {
+                y: "100%",
+                duration: 1.2,
+                stagger: 0.2,
+                ease: 'power4.out'
+            })
+            .to('#heroSub', {
+                opacity: 1,
+                y: 0,
+                duration: 1,
+                ease: 'power3.out'
+            }, '-=0.4')
+            .to('#heroCue', {
+                opacity: 1,
+                duration: 1
+            }, '-=0.6')
+            .from('#sceneLabel', {
+                opacity: 0,
+                y: 20,
+                duration: 0.8
+            }, '-=1');
+
+        const timelineTrack = document.getElementById('timelineTrack');
+        const timelineFrames = document.querySelectorAll('.timeline-frame');
+        const scrubberProgress = document.getElementById('scrubberProgress');
+        const scrollCue = document.getElementById('scrollCue');
+
+        const timelineTween = gsap.to(timelineTrack, {
+            x: () => -(timelineTrack.scrollWidth - window.innerWidth),
+            ease: "none",
+            scrollTrigger: {
+                trigger: "#timelineSection",
+                start: "top top",
+                end: () => "+=" + (timelineTrack.scrollWidth - window.innerWidth),
+                pin: true,
+                scrub: 1,
+                anticipatePin: 1,
+                onUpdate: (self) => {
+                    if (self.progress > 0.02 && scrollCue) {
+                        gsap.to(scrollCue, { opacity: 0, duration: 0.5 });
+                    }
+
+                    gsap.to(scrubberProgress, { width: (self.progress * 100) + "%", duration: 0.1 });
+
+                    const activeIndex = Math.round(self.progress * (timelineFrames.length - 1));
+                    timelineFrames.forEach((frame, i) => {
+                        if (i === activeIndex) {
+                            frame.classList.add('active');
+                        } else {
+                            frame.classList.remove('active');
+                        }
+                    });
+                },
+                onEnter: () => document.getElementById('lightLeak').classList.add('active'),
+                onLeave: () => document.getElementById('lightLeak').classList.remove('active'),
+                onEnterBack: () => document.getElementById('lightLeak').classList.add('active'),
+                onLeaveBack: () => document.getElementById('lightLeak').classList.remove('active')
+            }
+        });
+
+        const timelineSection = document.getElementById('timelineSection');
+        timelineSection.addEventListener('mouseenter', () => {
+            cursorOutline.classList.add('scrubbing');
+        });
+        timelineSection.addEventListener('mouseleave', () => {
+            cursorOutline.classList.remove('scrubbing');
+        });
+
+        gsap.utils.toArray('.reveal-text').forEach(element => {
+            gsap.fromTo(element,
+                { y: 50, opacity: 0 },
+                {
+                    y: 0,
+                    opacity: 1,
+                    duration: 1,
+                    ease: 'power3.out',
+                    scrollTrigger: {
+                        trigger: element,
+                        start: 'top 85%'
+                    }
+                }
+            );
+        });
+
+        gsap.utils.toArray('.video-card').forEach((card, i) => {
+            gsap.from(card, {
+                y: 100,
+                opacity: 0,
+                duration: 1,
+                delay: i * 0.1,
+                scrollTrigger: {
+                    trigger: card,
+                    start: 'top 85%'
+                }
+            });
+        });
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('heroMesh').appendChild(renderer.domElement);
+
+        const geometry = new THREE.PlaneGeometry(4, 4, 20, 20);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xd4a574,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.1
+        });
+        const plane = new THREE.Mesh(geometry, material);
+        scene.add(plane);
+
+        camera.position.z = 2;
+
+        let mouseX = 0;
+        let mouseY = 0;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            plane.rotation.x = elapsedTime * 0.1;
+            plane.rotation.y = elapsedTime * 0.05;
+            plane.position.x = mouseX * 0.5;
+            plane.position.y = mouseY * 0.5;
+
+            const positions = plane.geometry.attributes.position;
+            for (let i = 0; i < positions.count; i++) {
+                const x = positions.getX(i);
+                const y = positions.getY(i);
+                const z = Math.sin(x * 2 + elapsedTime) * 0.2 + Math.cos(y * 2 + elapsedTime) * 0.2;
+                positions.setZ(i, z);
+            }
+            positions.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
