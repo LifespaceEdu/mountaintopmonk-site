@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MountainTopMonk // Platform Scope</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --accent: #d4a574;
+            --text-primary: #f5f5f5;
+            --text-secondary: #a1a1aa;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            cursor: none;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .letterbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            border-top: 12vh solid var(--bg-primary);
+            border-bottom: 12vh solid var(--bg-primary);
+            box-sizing: border-box;
+            transition: border-width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .letterbox-overlay.expanded {
+            border-top: 0vh solid var(--bg-primary);
+            border-bottom: 0vh solid var(--bg-primary);
+        }
+
+        .film-grain {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.08;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            animation: grain 0.5s steps(10) infinite;
+        }
+
+        @keyframes grain {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-5%, -5%); }
+            20% { transform: translate(-10%, 5%); }
+            30% { transform: translate(5%, -10%); }
+            40% { transform: translate(-5%, 15%); }
+            50% { transform: translate(-10%, 5%); }
+            60% { transform: translate(15%, 0); }
+            70% { transform: translate(0, 10%); }
+            80% { transform: translate(-15%, 0); }
+            90% { transform: translate(10%, 5%); }
+        }
+
+        .light-leak {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 998;
+            background: radial-gradient(circle at 20% 30%, rgba(212, 165, 116, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(180, 120, 80, 0.1) 0%, transparent 40%);
+            mix-blend-mode: screen;
+            opacity: 1;
+            animation: leakShift 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes leakShift {
+            0% { transform: translate(-5%, -5%) scale(1.1); }
+            100% { transform: translate(5%, 5%) scale(1.2); }
+        }
+
+        .cursor-dot,
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .cursor-dot {
+            width: 4px;
+            height: 4px;
+            background-color: var(--accent);
+        }
+
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(212, 165, 116, 0.6);
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
+        }
+
+        .cursor-outline.hover-link {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(212, 165, 116, 0.1);
+            border-color: var(--accent);
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 997;
+            opacity: 0.3;
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: var(--accent);
+            z-index: 1001;
+            transform-origin: left;
+            transform: scaleX(0);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .reveal-line {
+            display: block;
+            transform: translateY(100%);
+            opacity: 0;
+        }
+
+        .slate-label {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent);
+            border: 1px solid rgba(212, 165, 116, 0.3);
+            padding: 0.5rem 1rem;
+            display: inline-block;
+            margin-bottom: 2rem;
+        }
+
+        .form-section {
+            background: #f5f3f0;
+            color: #000000;
+        }
+
+        .form-section .slate-label {
+            color: #8b7355;
+            border-color: rgba(139, 115, 85, 0.3);
+        }
+
+        .form-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+            padding: 0.75rem 0;
+            color: #000000;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            border-bottom-color: #8b7355;
+        }
+
+        .form-input::placeholder {
+            color: #b0a898;
+        }
+
+        .form-textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+            border-left: 2px solid rgba(139, 115, 85, 0.3);
+            padding: 0.75rem 0 0.75rem 1rem;
+            color: #000000;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.3s;
+        }
+
+        .form-textarea:focus {
+            border-bottom-color: #8b7355;
+            border-left-color: #8b7355;
+        }
+
+        .form-textarea::placeholder {
+            color: #b0a898;
+        }
+
+        .form-select {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+            padding: 0.75rem 0;
+            color: #000000;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b7355' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0 center;
+        }
+
+        .form-select:focus {
+            border-bottom-color: #8b7355;
+        }
+
+        .form-select option {
+            background: #f5f3f0;
+            color: #000000;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #000000;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-section-divider {
+            height: 1px;
+            background: rgba(0, 0, 0, 0.08);
+            margin: 3rem 0;
+        }
+
+        .radio-group label,
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            padding: 0.5rem 0;
+            color: #000000;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .radio-group label:hover,
+        .checkbox-group label:hover {
+            color: #000000;
+        }
+
+        .radio-group input[type="radio"],
+        .checkbox-group input[type="checkbox"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .radio-group input[type="radio"] {
+            border-radius: 50%;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            border-radius: 2px;
+        }
+
+        .radio-group input[type="radio"]:checked {
+            border-color: #8b7355;
+            background: #8b7355;
+            box-shadow: inset 0 0 0 3px #f5f3f0;
+        }
+
+        .checkbox-group input[type="checkbox"]:checked {
+            border-color: #8b7355;
+            background: #8b7355;
+            background-image: url("data:image/svg+xml,%3Csvg width='12' height='10' viewBox='0 0 12 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5l3 3 7-7' stroke='%23f5f3f0' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .submit-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.25rem 3rem;
+            background: transparent;
+            border: 1px solid rgba(139, 115, 85, 0.4);
+            color: #8b7355;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+
+        .submit-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #8b7355;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: -1;
+        }
+
+        .submit-btn:hover {
+            color: #f5f3f0;
+            border-color: #8b7355;
+        }
+
+        .submit-btn:hover::before {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+
+        @media (pointer: coarse) {
+            .cursor-dot, .cursor-outline {
+                display: none;
+            }
+            body {
+                cursor: auto;
+            }
+            .letterbox-overlay {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-orange-900 selection:text-white">
+
+    <div class="letterbox-overlay" id="letterbox"></div>
+    <div class="film-grain"></div>
+    <div class="scanlines" id="scanlines"></div>
+    <div class="light-leak"></div>
+
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+
+    <nav class="fixed top-0 w-full z-[1002] px-6 py-6 mix-blend-difference">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <img src="logo.png" alt="MountainTopMonk" class="h-[27px] md:h-[34px] w-auto invert">
+                <span class="text-xl md:text-2xl font-serif text-white tracking-tight">MountainTopMonk</span>
+            </a>
+            <div class="hidden md:flex gap-8 text-sm uppercase tracking-widest text-gray-300">
+                <span class="text-[#d4a574]">Platform Scope</span>
+                <span class="text-gray-600">/</span>
+                <a href="index.html" class="hover:text-[#d4a574] transition-colors">Architecture</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 bg-[#0a0a0b]">
+            <div class="absolute inset-0 opacity-30" style="background: radial-gradient(circle at 50% 50%, #1a1510 0%, #0a0a0b 70%);"></div>
+        </div>
+
+        <div class="relative z-10 max-w-6xl mx-auto text-center px-6">
+            <div class="mb-8">
+                <span class="slate-label" id="sceneLabel">Custom Build // Scoping</span>
+            </div>
+
+            <h1 class="text-6xl md:text-8xl lg:text-9xl font-serif leading-[0.9] mb-8" id="heroTitle">
+                <span class="block overflow-hidden">
+                    <span class="inline-block reveal-line">Let's get</span>
+                </span>
+                <span class="block overflow-hidden">
+                    <span class="inline-block reveal-line italic text-[#d4a574]">specific.</span>
+                </span>
+            </h1>
+
+            <div class="max-w-2xl mx-auto mb-12 opacity-0" id="heroSub">
+                <h2 class="text-5xl md:text-7xl font-serif italic mb-6" style="color: #c4856c;">Hi Melissa,</h2>
+                <p class="text-lg md:text-xl text-gray-400 leading-relaxed font-light">
+                    This is the follow up info I need to create a cost workup.
+                    Answers can be as short as you like and there is no rush to complete this.
+                </p>
+            </div>
+
+            <div class="opacity-0" id="heroCue">
+                <a href="#form" class="inline-flex items-center gap-3 text-[#d4a574] font-mono text-sm tracking-widest uppercase hover:opacity-70 transition-opacity">
+                    <span>Begin</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 1V15M8 15L1 8M8 15L15 8" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="absolute bottom-24 right-6 text-xs font-mono text-[#d4a574]/60 tracking-widest hidden md:block">
+            SCOPE 00:00:00:00<br>
+            STATUS: PENDING
+        </div>
+    </section>
+
+    <!-- FORM -->
+    <section id="form" class="py-24 px-6 relative z-10 form-section">
+        <form action="https://formspree.io/f/xbdzwkob" method="POST" class="max-w-3xl mx-auto">
+
+            <!-- YOUR SCHOOL -->
+            <div class="mb-4">
+                <span class="slate-label reveal-text">Your School</span>
+            </div>
+
+            <div class="space-y-8">
+                <div>
+                    <label class="form-label" for="student-count">How many students do you currently teach?</label>
+                    <input type="text" name="student_count" id="student-count" class="form-input" placeholder="Approximate number">
+                </div>
+
+                <div>
+                    <label class="form-label" for="student-capacity">What's your current in-person capacity — how many could you take on?</label>
+                    <input type="text" name="student_capacity" id="student-capacity" class="form-input" placeholder="Max students you could handle right now">
+                </div>
+
+                <div>
+                    <label class="form-label" for="in-person-pct">What percentage of your students are in person vs. remote?</label>
+                    <input type="text" name="in_person_split" id="in-person-pct" class="form-input" placeholder="e.g. 90% in person, 10% remote — or all in person">
+                </div>
+
+                <div>
+                    <label class="form-label" for="other-teachers">Will the platform feature just you, or will other teachers work with you?</label>
+                    <textarea name="teachers" id="other-teachers" class="form-textarea" placeholder="Just me / I have 2 other teachers / I bring in guest instructors sometimes..."></textarea>
+                </div>
+
+                <div>
+                    <label class="form-label" for="current-tools">What tools are you using right now for booking, payments, and communicating with students?</label>
+                    <textarea name="current_tools" id="current-tools" class="form-textarea" placeholder="Website, app name, email, text, paper..."></textarea>
+                </div>
+            </div>
+
+            <div class="form-section-divider"></div>
+
+            <!-- WHAT YOU NEED -->
+            <div class="mb-4">
+                <span class="slate-label reveal-text">What You Need</span>
+            </div>
+
+            <div class="space-y-8">
+                <div>
+                    <label class="form-label">Which parts of the platform matter most to you right now?</label>
+                    <div class="checkbox-group mt-2 space-y-1">
+                        <label><input type="checkbox" name="features" value="student-portal"> Student portal with progress tracking</label>
+                        <label><input type="checkbox" name="features" value="video-lessons"> Video lessons library</label>
+                        <label><input type="checkbox" name="features" value="scheduling"> Scheduling and lesson management</label>
+                        <label><input type="checkbox" name="features" value="remote-lessons"> Remote / virtual lesson support</label>
+                        <label><input type="checkbox" name="features" value="sheet-library"> Sheet music library you and students can access online</label>
+                        <label><input type="checkbox" name="features" value="ai-tools"> AI tools (practice feedback, lesson notes)</label>
+                        <label><input type="checkbox" name="features" value="monetization"> Selling access to online-only students</label>
+                        <label><input type="checkbox" name="features" value="parent-portal"> Parent communication portal</label>
+                        <label><input type="checkbox" name="features" value="subscriptions"> Monthly subscription service for students or families</label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label" for="biggest-problem">What's the biggest problem you'd like to solve?</label>
+                    <textarea name="biggest_problem" id="biggest-problem" class="form-textarea" placeholder="Students losing their sheet music, no way to share resources between lessons, wanting to reach students off-island..."></textarea>
+                </div>
+
+                <div>
+                    <label class="form-label" for="video-content">How much existing video content (lesson recordings, tutorials) do you have?</label>
+                    <textarea name="existing_video" id="video-content" class="form-textarea" placeholder="Yes — I have YouTube videos / I've recorded some lessons on my phone / No, but I want to start..."></textarea>
+                </div>
+
+                <div>
+                    <label class="form-label" for="growth">Where do you want this to go? Are you trying to grow beyond in-person, or make in-person better?</label>
+                    <textarea name="growth_goal" id="growth" class="form-textarea" placeholder="I want to reach students across the island / I just want my current students to have better resources / Both..."></textarea>
+                </div>
+            </div>
+
+            <div class="form-section-divider"></div>
+
+            <!-- YOU -->
+            <div class="mb-4">
+                <span class="slate-label reveal-text">You</span>
+            </div>
+
+            <div class="space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="form-label" for="name">Name *</label>
+                        <input type="text" name="name" id="name" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="form-label" for="email">Email *</label>
+                        <input type="email" name="email" id="email" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="form-label" for="phone">Phone</label>
+                        <input type="tel" name="phone" id="phone" class="form-input">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-16 text-center">
+                <button type="submit" class="submit-btn">
+                    <span>Submit</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 8H15M15 8L8 1M15 8L8 15" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                </button>
+                <p class="text-xs font-mono mt-4 tracking-wide" style="color: #b0a898;">
+                    I'll put together your cost breakdown within a few days.
+                </p>
+            </div>
+
+        </form>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="py-12 px-6 bg-[#0a0a0b] border-t border-white/5">
+        <div class="max-w-3xl mx-auto flex justify-between items-center">
+            <span class="text-xs text-gray-700 font-mono uppercase tracking-widest">
+                &copy; 2026 MountainTopMonk Design Services
+            </span>
+            <a href="index.html" class="text-xs text-gray-600 font-mono uppercase tracking-widest hover:text-[#d4a574] transition-colors">
+                mountaintopmonk.com
+            </a>
+        </div>
+    </footer>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Custom cursor
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+
+        window.addEventListener('mousemove', (e) => {
+            cursorDot.style.left = `${e.clientX}px`;
+            cursorDot.style.top = `${e.clientY}px`;
+            cursorOutline.style.left = `${e.clientX}px`;
+            cursorOutline.style.top = `${e.clientY}px`;
+        });
+
+        // Hover states for links and buttons
+        document.querySelectorAll('a, button, select, .radio-group label, .checkbox-group label').forEach(el => {
+            el.addEventListener('mouseenter', () => cursorOutline.classList.add('hover-link'));
+            el.addEventListener('mouseleave', () => cursorOutline.classList.remove('hover-link'));
+        });
+
+        // Letterbox expand on scroll
+        ScrollTrigger.create({
+            trigger: "body",
+            start: "top top",
+            end: "100px top",
+            onUpdate: (self) => {
+                if (self.progress > 0.5) {
+                    document.getElementById('letterbox').classList.add('expanded');
+                } else {
+                    document.getElementById('letterbox').classList.remove('expanded');
+                }
+            }
+        });
+
+        // Progress bar
+        gsap.to('.progress-bar', {
+            scaleX: 1,
+            ease: 'none',
+            scrollTrigger: {
+                trigger: document.body,
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 0.3
+            }
+        });
+
+        // Hero reveal
+        const heroTl = gsap.timeline({ delay: 0.5 });
+
+        heroTl
+            .from('.reveal-line', {
+                y: "100%",
+                duration: 1.2,
+                stagger: 0.2,
+                ease: 'power4.out'
+            })
+            .to('#heroSub', {
+                opacity: 1,
+                y: 0,
+                duration: 1,
+                ease: 'power3.out'
+            }, '-=0.4')
+            .to('#heroCue', {
+                opacity: 1,
+                duration: 1
+            }, '-=0.6')
+            .from('#sceneLabel', {
+                opacity: 0,
+                y: 20,
+                duration: 0.8
+            }, '-=1');
+
+        // Fade scanlines over form for readability
+        ScrollTrigger.create({
+            trigger: '#form',
+            start: 'top 80%',
+            end: 'top 20%',
+            onUpdate: (self) => {
+                document.getElementById('scanlines').style.opacity = 0.3 - (self.progress * 0.25);
+            }
+        });
+
+        // Scroll-triggered reveals for form sections
+        gsap.utils.toArray('.reveal-text').forEach(element => {
+            gsap.fromTo(element,
+                { y: 50, opacity: 0 },
+                {
+                    y: 0,
+                    opacity: 1,
+                    duration: 1,
+                    ease: 'power3.out',
+                    scrollTrigger: {
+                        trigger: element,
+                        start: 'top 85%'
+                    }
+                }
+            );
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
